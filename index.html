@@ -179,6 +179,20 @@ body.dark .mine{stroke:#fde047}
   .badge{top:8px;right:12px}
   .foot{padding:10px 0 12px}
 }
+.nextBtn{display:none;flex:1;align-items:center;justify-content:center;gap:12px;border-radius:14px;background:var(--accent);color:#fff;font-size:18px;font-weight:800;padding:16px 0;box-shadow:0 8px 22px color-mix(in srgb,var(--accent) 40%,transparent);animation:nextIn .4s cubic-bezier(.2,1.3,.4,1)}
+.nextBtn svg{width:26px;height:26px;stroke:#fff;fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.nextBtn span{display:flex;flex-direction:column;align-items:flex-start;line-height:1.15}
+.nextBtn small{font-size:12px;font-weight:600;opacity:.85}
+.nextBtn:active{transform:scale(.97)}
+@keyframes nextIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.app.revealed .tools{display:flex}
+.app.revealed .tool{display:none}
+.app.revealed .nextBtn{display:flex}
+@media (orientation: landscape) and (min-width: 700px){
+  .nextBtn{flex-direction:column;gap:10px;padding:0 6px;font-size:16px}
+  .nextBtn span{align-items:center;text-align:center}
+  .nextBtn svg{width:34px;height:34px}
+}
 </style>
 </head>
 <body>
@@ -237,6 +251,7 @@ body.dark .mine{stroke:#fde047}
     <button class="tool" id="tUndo"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/></svg>되돌리기</button>
     <button class="tool" id="tHint"><span class="badge" id="hintBadge">3</span><svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 00-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0012 3z"/></svg>힌트보기</button>
     <button class="tool" id="tAns"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>답안보기</button>
+    <button class="nextBtn" id="nextBtn"><svg viewBox="0 0 24 24"><path d="M5 12h13"/><path d="M13 6l6 6-6 6"/></svg><span>다음 문제<small id="nextSub">하 5×5</small></span></button>
   </div>
 </div>
 <div class="foot" id="foot"></div>
@@ -300,7 +315,7 @@ body.dark .mine{stroke:#fde047}
 <div class="toast" id="toast"></div>
 
 <script>
-const VERSION = '1.0';
+const VERSION = '1.1';
 const BUILD_DATE = '2026-11-18';
 
 // CORE-START
@@ -528,7 +543,7 @@ const sfx={
 
 /* ---------- 문제 시작 ---------- */
 function newPuzzle(d,seed){
-  curDiff=d; solved=false; resetPause();
+  curDiff=d; solved=false; resetPause(); document.querySelector('.app').classList.remove('revealed');
   if(seed==null) seed=Math.floor(100000+Math.random()*900000);
   document.querySelectorAll('#diff button').forEach(b=>b.classList.toggle('on',+b.dataset.d===d));
   $('loading').classList.add('show');
@@ -707,6 +722,8 @@ $('ansYes').onclick=()=>{
   const mine=[]; for(let e=0;e<P.g.E;e++) if(user[e]===1) mine.push(e);
   for(let e=0;e<P.g.E;e++) user[e]=P.sol[e]===1?1:0;
   undoStack=[]; render(); svg.classList.add('revealed');
+  const D=DIFFS[curDiff]; $('nextSub').textContent=`${D.name} ${D.W}×${D.H}`;
+  document.querySelector('.app').classList.add('revealed');
   // 내가 이은 선을 정답 위에 노란색으로 겹쳐 표시
   const NS='http://www.w3.org/2000/svg';
   mine.forEach(e=>{
@@ -716,7 +733,7 @@ $('ansYes').onclick=()=>{
   });
   $('hintInfo').innerHTML='<span class="ansLegend"><span><i style="background:var(--accent)"></i>정답</span><span><i style="background:#facc15"></i>내가 이은 선</span></span>';
   sfx.clear();
-  showToast('답안이에요. 새 문제로 다시 도전해 보세요');
+  showToast('답안이에요. 다음 문제로 다시 도전해 보세요');
 };
 
 /* ---------- 힌트 ---------- */
@@ -816,6 +833,7 @@ function confetti(){
   }
 }
 $('winNext').onclick=()=>{$('ovWin').classList.remove('show');newPuzzle(curDiff);};
+$('nextBtn').onclick=()=>{ensureAudio();newPuzzle(curDiff);};
 $('winDiff').onclick=()=>{$('ovWin').classList.remove('show');$('ovDiff').classList.add('show');};
 document.querySelectorAll('#ovDiff button').forEach(b=>b.onclick=()=>{$('ovDiff').classList.remove('show');newPuzzle(+b.dataset.d);});
 
