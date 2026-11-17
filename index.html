@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>울타리 치기 · 슬리더링크</title>
+<style>
+:root{
+  --bg:#f4f1ea; --card:#ffffff; --ink:#22304a; --sub:#7a8194; --line:#22304a;
+  --dot:#22304a; --x:#a3a9b8; --done:#b9bdc8; --over:#e5484d; --accent:#2f6fed;
+  --hint:#f59e0b; --btn:#eceae3; --btnOn:#22304a; --btnOnTxt:#fff; --shadow:0 6px 24px rgba(34,48,74,.10);
+}
+body.dark{
+  --bg:#14161c; --card:#1e2129; --ink:#e8ecf5; --sub:#8b92a5; --line:#e8ecf5;
+  --dot:#c9cfdc; --x:#5b6273; --done:#4a5060; --over:#ff6b6b; --accent:#6b9bff;
+  --hint:#fbbf24; --btn:#2a2e38; --btnOn:#e8ecf5; --btnOnTxt:#14161c; --shadow:0 6px 24px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;transition:background .25s,color .25s;user-select:none;-webkit-user-select:none}
+.app{width:100%;max-width:560px;padding:14px 14px 0;display:flex;flex-direction:column;gap:12px;flex:1}
+header{display:flex;align-items:center;justify-content:space-between}
+.title{font-size:22px;font-weight:800;letter-spacing:-.5px}
+.title span{font-size:13px;font-weight:600;color:var(--sub);margin-left:6px}
+button{font:inherit;color:inherit;border:none;cursor:pointer}
+.iconBtn{background:var(--btn);border-radius:10px;padding:8px 12px;font-size:14px;font-weight:600}
+.diff{display:flex;background:var(--btn);border-radius:12px;padding:4px;gap:4px}
+.diff button{flex:1;padding:9px 0;border-radius:9px;background:transparent;font-weight:700;font-size:15px;color:var(--sub)}
+.diff button.on{background:var(--btnOn);color:var(--btnOnTxt)}
+.diff small{font-weight:500;font-size:11px;opacity:.8;margin-left:4px}
+.status{display:flex;align-items:center;gap:8px}
+.timerBox{position:relative;flex:1;display:flex;align-items:baseline;gap:8px}
+.timer{font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+.timerLbl{font-size:12px;color:var(--sub);font-weight:600}
+.plus{position:absolute;left:70px;top:-6px;color:var(--over);font-weight:800;font-size:18px;opacity:0;pointer-events:none}
+.plus.go{animation:plusUp 1.3s ease-out}
+@keyframes plusUp{0%{opacity:0;transform:translateY(8px)}15%{opacity:1}100%{opacity:0;transform:translateY(-22px)}}
+.chip{background:var(--btn);border-radius:999px;padding:7px 11px;font-size:12px;font-weight:700;color:var(--sub);font-variant-numeric:tabular-nums}
+.boardWrap{background:var(--card);border-radius:18px;box-shadow:var(--shadow);padding:10px;position:relative}
+svg#board{display:block;width:100%;height:auto;touch-action:none}
+.edge{stroke:var(--line);stroke-width:.13;stroke-linecap:round;opacity:0;transition:opacity .08s}
+.edge.on{opacity:1}
+.edge.flash-hint{opacity:1;stroke:var(--hint);animation:blink .4s ease-in-out 4}
+.edge.flash-wrong{opacity:1;stroke:var(--over);animation:blink .4s ease-in-out 4}
+@keyframes blink{50%{opacity:.15}}
+.xm{stroke:var(--x);stroke-width:.05;stroke-linecap:round;fill:none;opacity:0}
+.xm.show{opacity:1}
+.xm.flash-wrong{opacity:1;stroke:var(--over);animation:blink .4s ease-in-out 4}
+.dot{fill:var(--dot)}
+.clue{fill:var(--ink);font-size:.6px;font-weight:700;text-anchor:middle;dominant-baseline:central;transition:fill .15s}
+.clue.done{fill:var(--done)}
+.clue.over{fill:var(--over)}
+svg.solved .edge.on{animation:glow 1.1s ease-in-out 3}
+svg.revealed .edge.on{stroke:var(--accent);animation:none}
+@keyframes glow{50%{stroke:var(--accent);stroke-width:.2}}
+.tools{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+.tool{background:var(--btn);border-radius:14px;padding:10px 0 8px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;font-weight:700;position:relative}
+.tool svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.tool.on{background:var(--btnOn);color:var(--btnOnTxt)}
+.tool:disabled{opacity:.4;cursor:default}
+.badge{position:absolute;top:4px;right:6px;background:var(--hint);color:#1b1b1b;border-radius:999px;font-size:11px;min-width:18px;height:18px;line-height:18px;text-align:center;font-weight:800}
+.foot{width:100%;text-align:center;color:var(--sub);font-size:12px;padding:18px 0 16px;margin-top:auto}
+.overlay{position:fixed;inset:0;background:rgba(10,14,24,.45);display:none;align-items:center;justify-content:center;z-index:20;padding:20px}
+.overlay.show{display:flex}
+.modal{background:var(--card);color:var(--ink);border-radius:18px;padding:22px 20px 18px;width:100%;max-width:340px;box-shadow:var(--shadow);text-align:center}
+.modal h3{margin:0 0 6px;font-size:18px}
+.modal p{margin:0 0 16px;color:var(--sub);font-size:14px;line-height:1.5}
+.row{display:flex;gap:8px}
+.row button{flex:1;padding:12px 0;border-radius:12px;font-weight:700;font-size:15px;background:var(--btn)}
+.row button.primary{background:var(--btnOn);color:var(--btnOnTxt)}
+.success .big{font-size:52px;font-weight:900;color:var(--accent);letter-spacing:-1px;margin:4px 0 8px;animation:pop .6s cubic-bezier(.2,1.6,.4,1)}
+@keyframes pop{0%{transform:scale(.3);opacity:0}100%{transform:scale(1);opacity:1}}
+.success .time{font-size:30px;font-weight:800;font-variant-numeric:tabular-nums}
+.success .detail{font-size:13px;color:var(--sub);margin:4px 0 6px}
+.success .best{font-size:13px;font-weight:700;margin-bottom:16px}
+.success .best.new{color:var(--hint)}
+.setList{text-align:left;margin:6px 0 16px}
+.setItem{display:flex;justify-content:space-between;align-items:center;padding:11px 2px;border-bottom:1px solid var(--btn);font-size:15px;font-weight:600}
+.setItem small{display:block;color:var(--sub);font-weight:500;font-size:12px;margin-top:2px}
+.sw{width:46px;height:28px;border-radius:999px;background:var(--btn);position:relative;flex:none;transition:background .2s}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .2s}
+.sw.on{background:var(--accent)}
+.sw.on::after{left:21px}
+.loading{position:absolute;inset:0;border-radius:18px;background:var(--card);display:none;align-items:center;justify-content:center;flex-direction:column;gap:10px;color:var(--sub);font-weight:700;font-size:14px}
+.loading.show{display:flex}
+.spin{width:28px;height:28px;border:3px solid var(--btn);border-top-color:var(--accent);border-radius:50%;animation:sp 0.8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.toast{position:fixed;left:50%;white-space:nowrap;bottom:60px;transform:translateX(-50%);background:var(--btnOn);color:var(--btnOnTxt);padding:10px 16px;border-radius:999px;font-size:13px;font-weight:700;opacity:0;transition:opacity .25s;pointer-events:none;z-index:30}
+.toast.show{opacity:1}
+.conf{position:fixed;top:-12px;width:8px;height:12px;z-index:25;pointer-events:none;animation:fall linear forwards}
+@keyframes fall{to{transform:translateY(105vh) rotate(720deg)}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="title">울타리 치기<span>슬리더링크</span></div>
+    <button class="iconBtn" id="setBtn">설정</button>
+  </header>
+
+  <div class="diff" id="diff">
+    <button data-d="0">하<small>5×5</small></button>
+    <button data-d="1">중<small>7×7</small></button>
+    <button data-d="2">상<small>10×10</small></button>
+  </div>
+
+  <div class="status">
+    <div class="timerBox">
+      <div class="timer" id="timer">00:00</div>
+      <div class="timerLbl" id="hintInfo"></div>
+      <div class="plus" id="plus">+1:00</div>
+    </div>
+    <button class="chip" id="pid" title="문제 링크 복사">#000000</button>
+    <button class="iconBtn" id="newBtn">새 문제</button>
+  </div>
+
+  <div class="boardWrap">
+    <svg id="board" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div class="loading" id="loading"><div class="spin"></div>문제 만드는 중…</div>
+  </div>
+
+  <div class="tools">
+    <button class="tool on" id="tPen"><svg viewBox="0 0 24 24"><path d="M4 20l4-1 11-11-3-3L5 16l-1 4z"/><path d="M14 6l3 3"/></svg>펜</button>
+    <button class="tool" id="tX"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>X 표시</button>
+    <button class="tool" id="tErase"><svg viewBox="0 0 24 24"><path d="M8 20h12"/><path d="M5 15l8-9 6 6-6 7H9l-4-4z"/></svg>지우개</button>
+    <button class="tool" id="tUndo"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/></svg>되돌리기</button>
+    <button class="tool" id="tHint"><span class="badge" id="hintBadge">3</span><svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 00-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0012 3z"/></svg>힌트보기</button>
+    <button class="tool" id="tAns"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>답안보기</button>
+  </div>
+</div>
+<div class="foot" id="foot"></div>
+
+<div class="overlay" id="ovClear">
+  <div class="modal">
+    <h3>전체 선을 지울까요?</h3>
+    <p>판에 그린 선과 X 표시가 모두 지워져요.<br>시간과 남은 힌트는 그대로예요.</p>
+    <div class="row"><button id="clearNo">아니오</button><button class="primary" id="clearYes">예</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="ovAns">
+  <div class="modal">
+    <h3>답안을 볼까요?</h3>
+    <p>답안을 보면 이 문제는 끝나고<br>클리어 기록에 남지 않아요.</p>
+    <div class="row"><button id="ansNo">아니오</button><button class="primary" id="ansYes">예</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="ovWin">
+  <div class="modal success">
+    <div class="big">성공!</div>
+    <div class="time" id="winTime">0:00</div>
+    <div class="detail" id="winDetail"></div>
+    <div class="best" id="winBest"></div>
+    <div class="row"><button id="winDiff">난이도 바꾸기</button><button class="primary" id="winNext">다음 문제</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="ovSet">
+  <div class="modal">
+    <h3>설정</h3>
+    <div class="setList">
+      <div class="setItem" data-k="sound"><div>효과음</div><div class="sw"></div></div>
+      <div class="setItem" data-k="colorHint"><div>숫자 색 힌트<small>다 채우면 회색, 넘치면 빨간색</small></div><div class="sw"></div></div>
+      <div class="setItem" data-k="autoX"><div>자동 X 표시<small>다 채운 숫자 주변 빈 변에 X</small></div><div class="sw"></div></div>
+      <div class="setItem" data-k="dark"><div>다크 모드</div><div class="sw"></div></div>
+    </div>
+    <p id="recText" style="margin-bottom:14px"></p>
+    <div class="row"><button class="primary" id="setClose">닫기</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="ovDiff">
+  <div class="modal">
+    <h3>난이도 선택</h3>
+    <p>새 문제를 바로 만들어요.</p>
+    <div class="row"><button data-d="0">하</button><button data-d="1">중</button><button data-d="2">상</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const VERSION = '0.2';
+const BUILD_DATE = '2026-11-17';
+
+// CORE-START
+const DIFFS = [
+  {key:'easy', name:'하', W:5,  H:5,  ratio:0.55, mode:'prop'},
+  {key:'mid',  name:'중', W:7,  H:7,  ratio:0.42, mode:'prop'},
+  {key:'hard', name:'상', W:10, H:10, ratio:0.30, mode:'search'}
+];
+
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+
+function makeGeom(W,H){
+  const nH=(H+1)*W, nV=H*(W+1), E=nH+nV, NV=(H+1)*(W+1), NC=W*H;
+  const hI=(r,c)=>r*W+c, vI=(r,c)=>nH+r*(W+1)+c, vid=(r,c)=>r*(W+1)+c;
+  const cellEdges=[], edgeVerts=new Array(E), edgeCells=[], vertEdges=[], edgePos=new Array(E);
+  for(let i=0;i<NV;i++) vertEdges.push([]);
+  for(let e=0;e<E;e++) edgeCells.push([]);
+  for(let r=0;r<=H;r++) for(let c=0;c<W;c++){const e=hI(r,c);edgeVerts[e]=[vid(r,c),vid(r,c+1)];edgePos[e]=[c,r,c+1,r];}
+  for(let r=0;r<H;r++) for(let c=0;c<=W;c++){const e=vI(r,c);edgeVerts[e]=[vid(r,c),vid(r+1,c)];edgePos[e]=[c,r,c,r+1];}
+  for(let e=0;e<E;e++){vertEdges[edgeVerts[e][0]].push(e);vertEdges[edgeVerts[e][1]].push(e);}
+  for(let r=0;r<H;r++) for(let c=0;c<W;c++){
+    const ce=[hI(r,c),hI(r+1,c),vI(r,c),vI(r,c+1)];
+    cellEdges.push(ce); for(const e of ce) edgeCells[e].push(r*W+c);
+  }
+  return {W,H,nH,nV,E,NV,NC,hI,vI,cellEdges,edgeVerts,edgeCells,vertEdges,edgePos};
+}
+
+// s: Int8Array per edge. 1 = line, -1 = X, 0 = unknown
+function loopRule(g,clues,s){
+  const p=new Int32Array(g.NV); for(let i=0;i<g.NV;i++) p[i]=i;
+  const f=x=>{while(p[x]!==x){p[x]=p[p[x]];x=p[x];}return x;};
+  let total=0;
+  for(let e=0;e<g.E;e++) if(s[e]===1){total++;const ra=f(g.edgeVerts[e][0]),rb=f(g.edgeVerts[e][1]);if(ra!==rb)p[ra]=rb;}
+  if(total===0) return 0;
+  const ce=new Int32Array(g.NV), cv=new Int32Array(g.NV);
+  for(let e=0;e<g.E;e++) if(s[e]===1) ce[f(g.edgeVerts[e][0])]++;
+  for(let v=0;v<g.NV;v++){let d=0;for(const e of g.vertEdges[v]) if(s[e]===1) d++; if(d>0) cv[f(v)]++;}
+  for(let v=0;v<g.NV;v++) if(p[v]===v && ce[v]>0 && ce[v]===cv[v] && ce[v]<total) return -1;
+  let changed=0;
+  for(let e=0;e<g.E;e++){
+    if(s[e]!==0) continue;
+    const ra=f(g.edgeVerts[e][0]);
+    if(ra!==f(g.edgeVerts[e][1]) || ce[ra]===0) continue;
+    if(ce[ra]<total){s[e]=-1;changed=1;continue;}
+    let ok=true;
+    for(let i=0;i<g.NC&&ok;i++){const n=clues[i];if(n<0)continue;let L=0;for(const x of g.cellEdges[i]) if(s[x]===1||x===e) L++; if(L!==n) ok=false;}
+    if(!ok){s[e]=-1;changed=1;}
+  }
+  return changed;
+}
+
+function propagate(g,clues,s){
+  let changed=true;
+  while(changed){
+    changed=false;
+    for(let i=0;i<g.NC;i++){
+      const n=clues[i]; if(n<0) continue;
+      const ce=g.cellEdges[i]; let L=0,U=0;
+      for(const e of ce){if(s[e]===1)L++;else if(s[e]===0)U++;}
+      if(L>n||L+U<n) return false;
+      if(U>0){
+        if(L===n){for(const e of ce) if(s[e]===0) s[e]=-1; changed=true;}
+        else if(L+U===n){for(const e of ce) if(s[e]===0) s[e]=1; changed=true;}
+      }
+    }
+    for(let v=0;v<g.NV;v++){
+      const ve=g.vertEdges[v]; let L=0,U=0;
+      for(const e of ve){if(s[e]===1)L++;else if(s[e]===0)U++;}
+      if(L>2) return false;
+      if(L===1&&U===0) return false;
+      if(U>0){
+        if(L===2||(L===0&&U===1)){for(const e of ve) if(s[e]===0) s[e]=-1; changed=true;}
+        else if(L===1&&U===1){for(const e of ve) if(s[e]===0) s[e]=1; changed=true;}
+      }
+    }
+    if(!changed){const r=loopRule(g,clues,s); if(r===-1) return false; if(r===1) changed=true;}
+  }
+  return true;
+}
+
+function verify(g,clues,s){
+  let total=0; for(let e=0;e<g.E;e++) if(s[e]===1) total++;
+  if(!total) return false;
+  for(let v=0;v<g.NV;v++){let d=0;for(const e of g.vertEdges[v]) if(s[e]===1) d++; if(d!==0&&d!==2) return false;}
+  for(let i=0;i<g.NC;i++){const n=clues[i];if(n<0)continue;let L=0;for(const e of g.cellEdges[i]) if(s[e]===1) L++; if(L!==n) return false;}
+  const p=new Int32Array(g.NV); for(let i=0;i<g.NV;i++) p[i]=i;
+  const f=x=>{while(p[x]!==x){p[x]=p[p[x]];x=p[x];}return x;};
+  let root=-1;
+  for(let e=0;e<g.E;e++) if(s[e]===1){const ra=f(g.edgeVerts[e][0]),rb=f(g.edgeVerts[e][1]);if(ra!==rb)p[ra]=rb;}
+  for(let e=0;e<g.E;e++) if(s[e]===1){const r=f(g.edgeVerts[e][0]); if(root<0) root=r; else if(r!==root) return false;}
+  return true;
+}
+
+function countSolutions(g,clues,limit,budget){
+  let count=0,nodes=0;
+  function rec(s){
+    if(count>=limit||nodes>budget) return;
+    nodes++;
+    if(!propagate(g,clues,s)) return;
+    let pick=-1;
+    for(let v=0;v<g.NV&&pick<0;v++){
+      let L=0; for(const e of g.vertEdges[v]) if(s[e]===1) L++;
+      if(L===1) for(const e of g.vertEdges[v]) if(s[e]===0){pick=e;break;}
+    }
+    if(pick<0){
+      for(let i=0;i<g.NC&&pick<0;i++) if(clues[i]===3) for(const e of g.cellEdges[i]) if(s[e]===0){pick=e;break;}
+    }
+    if(pick<0) for(let e=0;e<g.E;e++) if(s[e]===0){pick=e;break;}
+    if(pick<0){ if(verify(g,clues,s)) count++; return; }
+    const a=s.slice(); a[pick]=1; rec(a);
+    const b=s.slice(); b[pick]=-1; rec(b);
+  }
+  rec(new Int8Array(g.E));
+  return {count, aborted:nodes>budget};
+}
+
+function propSolvable(g,clues){
+  const s=new Int8Array(g.E);
+  if(!propagate(g,clues,s)) return false;
+  for(let e=0;e<g.E;e++) if(s[e]===0) return false;
+  return verify(g,clues,s);
+}
+function isUnique(g,clues){
+  if(propSolvable(g,clues)) return true;
+  const r=countSolutions(g,clues,2,6000);
+  return r.count===1 && !r.aborted;
+}
+
+function genRegion(g,rng){
+  const {W,H,NC}=g, inside=new Uint8Array(NC);
+  const target=Math.max(3,Math.floor(NC*(0.45+rng()*0.17)));
+  inside[Math.floor(rng()*NC)]=1; let size=1, fails=0;
+  const isIn=(r,c)=>r>=0&&r<H&&c>=0&&c<W&&inside[r*W+c]===1;
+  const okRegion=(i)=>{
+    const r=(i/W)|0,c=i%W;
+    for(const [vr,vc] of [[r,c],[r,c+1],[r+1,c],[r+1,c+1]]){
+      const tl=isIn(vr-1,vc-1),tr=isIn(vr-1,vc),bl=isIn(vr,vc-1),br=isIn(vr,vc);
+      if(tl===br&&tr===bl&&tl!==tr) return false;
+    }
+    const seen=new Uint8Array(NC), q=[]; let outCount=0;
+    for(let k=0;k<NC;k++){ if(inside[k]) continue; outCount++;
+      const rr=(k/W)|0,cc=k%W; if(rr===0||cc===0||rr===H-1||cc===W-1){seen[k]=1;q.push(k);} }
+    let vis=q.length;
+    while(q.length){const k=q.pop(),rr=(k/W)|0,cc=k%W;
+      for(const [nr,nc] of [[rr-1,cc],[rr+1,cc],[rr,cc-1],[rr,cc+1]]){
+        if(nr<0||nr>=H||nc<0||nc>=W) continue; const n=nr*W+nc;
+        if(inside[n]||seen[n]) continue; seen[n]=1; vis++; q.push(n);
+      }}
+    return vis===outCount;
+  };
+  while(size<target && fails<NC*6){
+    const fr=[];
+    for(let i=0;i<NC;i++) if(!inside[i]){const r=(i/W)|0,c=i%W;if(isIn(r-1,c)||isIn(r+1,c)||isIn(r,c-1)||isIn(r,c+1)) fr.push(i);}
+    if(!fr.length) break;
+    const i=fr[Math.floor(rng()*fr.length)];
+    inside[i]=1;
+    if(okRegion(i)) size++; else {inside[i]=0; fails++;}
+  }
+  return {inside,size};
+}
+
+function makePuzzle(d,seed){
+  const D=DIFFS[d], g=makeGeom(D.W,D.H), rng=mulberry32(seed);
+  for(let attempt=0;attempt<40;attempt++){
+    const {inside,size}=genRegion(g,rng);
+    if(size<3) continue;
+    const isIn=(r,c)=>r>=0&&r<g.H&&c>=0&&c<g.W&&inside[r*g.W+c]===1;
+    const sol=new Int8Array(g.E);
+    for(let r=0;r<=g.H;r++) for(let c=0;c<g.W;c++) sol[g.hI(r,c)]=isIn(r-1,c)!==isIn(r,c)?1:-1;
+    for(let r=0;r<g.H;r++) for(let c=0;c<=g.W;c++) sol[g.vI(r,c)]=isIn(r,c-1)!==isIn(r,c)?1:-1;
+    const clues=new Int8Array(g.NC);
+    for(let i=0;i<g.NC;i++){let n=0;for(const e of g.cellEdges[i]) if(sol[e]===1) n++; clues[i]=n;}
+    const check = D.mode==='prop' ? (cl)=>propSolvable(g,cl) : (cl)=>isUnique(g,cl);
+    if(!check(clues)) continue;
+    const order=[...Array(g.NC).keys()];
+    for(let i=order.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[order[i],order[j]]=[order[j],order[i]];}
+    let cnt=g.NC; const tgt=Math.round(g.NC*D.ratio);
+    for(const i of order){
+      if(cnt<=tgt) break;
+      const keep=clues[i]; clues[i]=-1;
+      if(check(clues)) cnt--; else clues[i]=keep;
+    }
+    return {g,clues,sol,seed,d};
+  }
+  return null;
+}
+// CORE-END
+
+/* ---------- 상태 ---------- */
+const $=id=>document.getElementById(id);
+const svg=$('board');
+let P=null, user=null, undoStack=[], tool='pen', hintsLeft=3, penalty=0, startT=0, solved=false, curDiff=0, timerId=null;
+let lineEls=[], xEls=[], clueEls=[];
+const settings={sound:true,colorHint:true,autoX:false,dark:false};
+try{Object.assign(settings,JSON.parse(localStorage.getItem('slither_settings')||'{}'));}catch(e){}
+function saveSettings(){try{localStorage.setItem('slither_settings',JSON.stringify(settings));}catch(e){}}
+function lsGet(k,def){try{const v=localStorage.getItem(k);return v===null?def:JSON.parse(v);}catch(e){return def;}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+
+/* ---------- 소리 ---------- */
+let actx=null;
+function ensureAudio(){
+  if(!actx){try{actx=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}}
+  if(actx&&actx.state==='suspended') actx.resume();
+}
+function tone(freq,dur,type='sine',vol=0.15,when=0){
+  if(!settings.sound||!actx) return;
+  const t=actx.currentTime+when, o=actx.createOscillator(), gn=actx.createGain();
+  o.type=type; o.frequency.value=freq;
+  gn.gain.setValueAtTime(0.0001,t); gn.gain.exponentialRampToValueAtTime(vol,t+0.01); gn.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.connect(gn).connect(actx.destination); o.start(t); o.stop(t+dur+0.05);
+}
+const sfx={
+  draw(){tone(880,0.05,'triangle',0.08);},
+  erase(){tone(420,0.06,'triangle',0.07);},
+  x(){tone(620,0.04,'square',0.025);},
+  hint(){tone(660,0.12,'sine',0.12);tone(990,0.2,'sine',0.12,0.1);},
+  clear(){tone(500,0.08,'triangle',0.08);tone(330,0.15,'triangle',0.08,0.07);},
+  win(){
+    const n=[523.25,659.25,783.99,1046.5];
+    n.forEach((f,i)=>tone(f,i===3?0.7:0.18,'triangle',0.18,i*0.12));
+    [523.25,659.25,783.99].forEach(f=>tone(f,0.9,'sine',0.07,0.5));
+  }
+};
+
+/* ---------- 문제 시작 ---------- */
+function newPuzzle(d,seed){
+  curDiff=d; solved=false;
+  if(seed==null) seed=Math.floor(100000+Math.random()*900000);
+  document.querySelectorAll('#diff button').forEach(b=>b.classList.toggle('on',+b.dataset.d===d));
+  $('loading').classList.add('show');
+  stopTimer();
+  setTimeout(()=>{
+    let pz=makePuzzle(d,seed);
+    while(!pz){seed=Math.floor(100000+Math.random()*900000);pz=makePuzzle(d,seed);}
+    P=pz; user=new Int8Array(P.g.E); undoStack=[]; hintsLeft=3; penalty=0;
+    $('pid').textContent='#'+P.seed;
+    buildBoard(); render(); updateHintUI();
+    $('loading').classList.remove('show');
+    startT=performance.now(); startTimer();
+    try{history.replaceState(null,'',`?d=${d}&s=${P.seed}`);}catch(e){}
+  },30);
+}
+
+/* ---------- 판 그리기 ---------- */
+function buildBoard(){
+  const g=P.g; svg.classList.remove('solved','revealed');
+  svg.setAttribute('viewBox',`-0.5 -0.5 ${g.W+1} ${g.H+1}`);
+  let h=`<rect x="-0.5" y="-0.5" width="${g.W+1}" height="${g.H+1}" fill="transparent"/>`;
+  for(let e=0;e<g.E;e++){
+    const [x1,y1,x2,y2]=g.edgePos[e], mx=(x1+x2)/2, my=(y1+y2)/2, k=0.1;
+    h+=`<path class="xm" id="x${e}" d="M${mx-k} ${my-k}L${mx+k} ${my+k}M${mx+k} ${my-k}L${mx-k} ${my+k}"/>`;
+    h+=`<line class="edge" id="e${e}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
+  }
+  for(let i=0;i<g.NC;i++){
+    const r=(i/g.W)|0,c=i%g.W;
+    if(P.clues[i]>=0) h+=`<text class="clue" id="c${i}" x="${c+0.5}" y="${r+0.53}">${P.clues[i]}</text>`;
+  }
+  for(let r=0;r<=g.H;r++) for(let c=0;c<=g.W;c++) h+=`<circle class="dot" cx="${c}" cy="${r}" r="0.065"/>`;
+  svg.innerHTML=h;
+  lineEls=[];xEls=[];clueEls=[];
+  for(let e=0;e<g.E;e++){lineEls.push($('e'+e));xEls.push($('x'+e));}
+  for(let i=0;i<g.NC;i++) clueEls.push(P.clues[i]>=0?$('c'+i):null);
+}
+
+function render(){
+  const g=P.g;
+  for(let e=0;e<g.E;e++){
+    lineEls[e].classList.toggle('on',user[e]===1);
+    xEls[e].classList.toggle('show',user[e]===-1);
+  }
+  for(let i=0;i<g.NC;i++){
+    const el=clueEls[i]; if(!el) continue;
+    let L=0; for(const e of g.cellEdges[i]) if(user[e]===1) L++;
+    el.classList.toggle('done',settings.colorHint&&L===P.clues[i]&&P.clues[i]>0);
+    el.classList.toggle('over',settings.colorHint&&L>P.clues[i]);
+  }
+}
+
+/* ---------- 입력 ---------- */
+function edgeAt(ev,strict){
+  const g=P.g, pt=svg.createSVGPoint(); pt.x=ev.clientX; pt.y=ev.clientY;
+  const p=pt.matrixTransform(svg.getScreenCTM().inverse()), x=p.x, y=p.y;
+  let dh=Infinity,eh=-1,dv=Infinity,ev2=-1;
+  const ry=Math.round(y), cx=Math.floor(x);
+  if(ry>=0&&ry<=g.H&&cx>=0&&cx<g.W){dh=Math.abs(y-ry);eh=g.hI(ry,cx);}
+  const rx=Math.round(x), cy=Math.floor(y);
+  if(rx>=0&&rx<=g.W&&cy>=0&&cy<g.H){dv=Math.abs(x-rx);ev2=g.vI(cy,rx);}
+  const lim=strict?0.3:0.42;
+  if(strict&&Math.abs(dh-dv)<0.12) return -1;
+  if(dh<=dv) return dh<lim?eh:-1;
+  return dv<lim?ev2:-1;
+}
+
+let drag=null;
+function setEdge(e,val,changes){
+  const prev=user[e]; if(prev===val) return false;
+  user[e]=val; changes.push([e,prev,val]); return true;
+}
+function applyDrag(e){
+  if(drag.seen.has(e)) return;
+  drag.seen.add(e);
+  const prev=user[e]; let ok=false;
+  if(drag.kind==='pen'){
+    if(drag.mode===1&&prev!==1) ok=setEdge(e,1,drag.changes);
+    else if(drag.mode===0&&prev===1) ok=setEdge(e,0,drag.changes);
+    if(ok) (drag.mode===1?sfx.draw:sfx.erase)();
+  }else{
+    if(drag.mode===-1&&(prev===0||drag.first)) ok=setEdge(e,-1,drag.changes);
+    else if(drag.mode===0&&prev===-1) ok=setEdge(e,0,drag.changes);
+    if(ok) sfx.x();
+  }
+  drag.first=false;
+  if(ok) render();
+}
+svg.addEventListener('contextmenu',e=>e.preventDefault());
+svg.addEventListener('pointerdown',ev=>{
+  ev.preventDefault(); ensureAudio();
+  if(!P||solved) return;
+  const e=edgeAt(ev,false); if(e<0) return;
+  const kind=(ev.button===2||tool==='x')?'x':'pen';
+  const mode=kind==='pen'?(user[e]===1?0:1):(user[e]===-1?0:-1);
+  drag={kind,mode,seen:new Set(),changes:[],first:true};
+  try{svg.setPointerCapture(ev.pointerId);}catch(_){}
+  applyDrag(e);
+});
+svg.addEventListener('pointermove',ev=>{
+  if(!drag) return;
+  const e=edgeAt(ev,true); if(e>=0) applyDrag(e);
+});
+function endDrag(){
+  if(!drag) return;
+  const ch=drag.changes; drag=null;
+  if(ch.length){ autoX(ch); undoStack.push(ch); render(); checkWin(); }
+}
+svg.addEventListener('pointerup',endDrag);
+svg.addEventListener('pointercancel',endDrag);
+
+function autoX(changes){
+  if(!settings.autoX) return;
+  const g=P.g;
+  for(let i=0;i<g.NC;i++){
+    const n=P.clues[i]; if(n<0) continue;
+    let L=0; for(const e of g.cellEdges[i]) if(user[e]===1) L++;
+    if(L===n) for(const e of g.cellEdges[i]) if(user[e]===0) setEdge(e,-1,changes);
+  }
+}
+
+/* ---------- 도구 ---------- */
+function selectTool(t){tool=t;$('tPen').classList.toggle('on',t==='pen');$('tX').classList.toggle('on',t==='x');}
+$('tPen').onclick=()=>{ensureAudio();selectTool('pen');};
+$('tX').onclick=()=>{ensureAudio();selectTool('x');};
+$('tErase').onclick=()=>{ensureAudio();if(!P||solved)return;$('ovClear').classList.add('show');};
+$('clearNo').onclick=()=>$('ovClear').classList.remove('show');
+$('clearYes').onclick=()=>{
+  $('ovClear').classList.remove('show');
+  const ch=[]; for(let e=0;e<P.g.E;e++) if(user[e]!==0) setEdge(e,0,ch);
+  if(ch.length){undoStack.push(ch);sfx.clear();render();}
+};
+$('tUndo').onclick=()=>{
+  ensureAudio(); if(!P||solved) return;
+  const ch=undoStack.pop(); if(!ch) return;
+  for(let k=ch.length-1;k>=0;k--) user[ch[k][0]]=ch[k][1];
+  sfx.erase(); render();
+};
+
+/* ---------- 답안 보기 ---------- */
+$('tAns').onclick=()=>{ensureAudio();if(!P||solved)return;$('ovAns').classList.add('show');};
+$('ansNo').onclick=()=>$('ovAns').classList.remove('show');
+$('ansYes').onclick=()=>{
+  $('ovAns').classList.remove('show');
+  solved=true; stopTimer();
+  for(let e=0;e<P.g.E;e++) user[e]=P.sol[e]===1?1:0;
+  undoStack=[]; render(); svg.classList.add('revealed');
+  $('hintInfo').textContent='답안 확인';
+  sfx.clear();
+  showToast('답안이에요. 새 문제로 다시 도전해 보세요');
+};
+
+/* ---------- 힌트 ---------- */
+function flash(e,cls,isX){
+  const el=isX?xEls[e]:lineEls[e];
+  el.classList.remove('flash-hint','flash-wrong'); void el.getBBox();
+  el.classList.add(cls); setTimeout(()=>el.classList.remove(cls),1700);
+}
+function updateHintUI(){
+  $('hintBadge').textContent=hintsLeft;
+  $('tHint').disabled=hintsLeft<=0;
+  $('hintInfo').textContent=penalty?`힌트 +${penalty/60}분`:'';
+}
+$('tHint').onclick=()=>{
+  ensureAudio(); if(!P||solved||hintsLeft<=0) return;
+  const g=P.g, sol=P.sol, ch=[];
+  let target=-1, kind='';
+  for(let e=0;e<g.E;e++) if(user[e]===1&&sol[e]!==1){target=e;kind='wrongLine';break;}
+  if(target<0) for(let e=0;e<g.E;e++) if(user[e]===-1&&sol[e]===1){target=e;kind='wrongX';break;}
+  if(target<0){
+    const s=new Int8Array(g.E); for(let e=0;e<g.E;e++) s[e]=user[e];
+    let cands=[];
+    if(propagate(g,P.clues,s)) for(let e=0;e<g.E;e++) if(s[e]===1&&user[e]!==1&&sol[e]===1) cands.push(e);
+    if(!cands.length) for(let e=0;e<g.E;e++) if(sol[e]===1&&user[e]!==1) cands.push(e);
+    if(!cands.length) return;
+    target=cands[Math.floor(Math.random()*cands.length)]; kind='line';
+  }
+  if(kind==='wrongLine'){setEdge(target,0,ch);render();flash(target,'flash-wrong');showToast('잘못 그은 선을 지웠어요');}
+  else {setEdge(target,1,ch);render();flash(target,'flash-hint');if(kind==='wrongX')showToast('X 자리에 선이 들어가야 해요');}
+  undoStack.push(ch);
+  hintsLeft--; penalty+=60; updateHintUI(); updateTimer(); sfx.hint();
+  const pl=$('plus'); pl.classList.remove('go'); void pl.offsetWidth; pl.classList.add('go');
+  checkWin();
+};
+
+/* ---------- 시간 ---------- */
+function fmt(sec){sec=Math.max(0,Math.floor(sec));const m=Math.floor(sec/60),s=sec%60;return (m<10?'0':'')+m+':'+(s<10?'0':'')+s;}
+function fmtShort(sec){sec=Math.floor(sec);return Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0');}
+function elapsed(){return (performance.now()-startT)/1000;}
+function updateTimer(){ if(P&&!solved) $('timer').textContent=fmt(elapsed()+penalty); }
+function startTimer(){stopTimer();updateTimer();timerId=setInterval(updateTimer,250);}
+function stopTimer(){if(timerId){clearInterval(timerId);timerId=null;}}
+
+/* ---------- 클리어 ---------- */
+function checkWin(){
+  if(solved||!verify(P.g,P.clues,user)) return;
+  solved=true; stopTimer();
+  const solve=Math.floor(elapsed()), used=3-hintsLeft, total=solve+penalty;
+  $('timer').textContent=fmt(total);
+  // 남은 빈 변 X 처리로 깔끔하게
+  for(let e=0;e<P.g.E;e++) if(user[e]===-1) user[e]=0;
+  render(); svg.classList.add('solved');
+  const D=DIFFS[curDiff], bk='slither_best_'+D.key, ck='slither_clears_'+D.key;
+  const prev=lsGet(bk,null), isNew=prev===null||total<prev;
+  if(isNew) lsSet(bk,total);
+  lsSet(ck,lsGet(ck,0)+1);
+  $('winTime').textContent='클리어 '+fmtShort(total);
+  $('winDetail').textContent=used?`풀이 ${fmtShort(solve)} + 힌트 ${used}회 ${used}:00`:`풀이 ${fmtShort(solve)} · 힌트 없이 클리어`;
+  const best=$('winBest');
+  best.textContent=isNew?`${D.name} 난이도 최고 기록!`:`${D.name} 최고 기록 ${fmtShort(prev)}`;
+  best.classList.toggle('new',isNew);
+  setTimeout(()=>{sfx.win();confetti();$('ovWin').classList.add('show');},450);
+}
+function confetti(){
+  const cols=['#2f6fed','#f59e0b','#e5484d','#22c55e','#a855f7','#06b6d4'];
+  for(let i=0;i<80;i++){
+    const d=document.createElement('div'); d.className='conf';
+    d.style.left=Math.random()*100+'vw'; d.style.background=cols[i%cols.length];
+    d.style.animationDuration=(1.8+Math.random()*1.8)+'s'; d.style.animationDelay=(Math.random()*0.5)+'s';
+    d.style.borderRadius=Math.random()<.5?'2px':'50%';
+    document.body.appendChild(d); setTimeout(()=>d.remove(),4500);
+  }
+}
+$('winNext').onclick=()=>{$('ovWin').classList.remove('show');newPuzzle(curDiff);};
+$('winDiff').onclick=()=>{$('ovWin').classList.remove('show');$('ovDiff').classList.add('show');};
+document.querySelectorAll('#ovDiff button').forEach(b=>b.onclick=()=>{$('ovDiff').classList.remove('show');newPuzzle(+b.dataset.d);});
+
+/* ---------- 상단 ---------- */
+document.querySelectorAll('#diff button').forEach(b=>b.onclick=()=>{ensureAudio();newPuzzle(+b.dataset.d);});
+$('newBtn').onclick=()=>{ensureAudio();newPuzzle(curDiff);};
+function showToast(t){const el=$('toast');el.textContent=t;el.classList.add('show');clearTimeout(showToast._t);showToast._t=setTimeout(()=>el.classList.remove('show'),1600);}
+$('pid').onclick=()=>{
+  if(!P) return;
+  const url=location.href.split('?')[0]+`?d=${curDiff}&s=${P.seed}`;
+  const done=()=>showToast(`문제 #${P.seed} 링크를 복사했어요`);
+  try{navigator.clipboard.writeText(url).then(done,()=>showToast(`문제 번호 #${P.seed}`));}catch(e){showToast(`문제 번호 #${P.seed}`);}
+};
+
+/* ---------- 설정 ---------- */
+function applySettings(){
+  document.body.classList.toggle('dark',settings.dark);
+  document.querySelectorAll('.setItem').forEach(it=>it.querySelector('.sw').classList.toggle('on',!!settings[it.dataset.k]));
+  if(P) render();
+}
+document.querySelectorAll('.setItem').forEach(it=>it.onclick=()=>{settings[it.dataset.k]=!settings[it.dataset.k];saveSettings();applySettings();});
+$('setBtn').onclick=()=>{
+  const lines=DIFFS.map(D=>{const b=lsGet('slither_best_'+D.key,null),c=lsGet('slither_clears_'+D.key,0);return `${D.name}: 클리어 ${c}회${b!==null?' · 최고 '+fmtShort(b):''}`;});
+  $('recText').innerHTML=lines.join('<br>');
+  $('ovSet').classList.add('show');
+};
+$('setClose').onclick=()=>$('ovSet').classList.remove('show');
+
+/* ---------- 시작 ---------- */
+$('foot').textContent=`v${VERSION} · ${BUILD_DATE}`;
+applySettings();
+(function(){
+  let d=0,s=null;
+  try{const q=new URLSearchParams(location.search);if(q.has('d'))d=Math.min(2,Math.max(0,parseInt(q.get('d'))||0));if(q.has('s'))s=parseInt(q.get('s'))||null;}catch(e){}
+  newPuzzle(d,s);
+})();
+</script>
+</body>
+</html>
