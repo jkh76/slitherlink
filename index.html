@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>울타리 치기 · 슬리더링크</title>
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#05a2fe">
 <style>
 :root{
   --bg:#f4f1ea; --card:#ffffff; --ink:#22304a; --sub:#7a8194; --line:#22304a;
@@ -85,6 +90,12 @@ svg.revealed .edge.on{stroke:var(--accent);animation:none}
 .loading.show{display:flex}
 .spin{width:28px;height:28px;border:3px solid var(--btn);border-top-color:var(--accent);border-radius:50%;animation:sp 0.8s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
+.recList{margin:0 0 16px;display:flex;flex-direction:column;gap:8px}
+.recRow{display:flex;justify-content:space-between;align-items:center;background:var(--btn);border-radius:12px;padding:12px 14px}
+.recRow b{font-size:16px}
+.recRow b small{font-weight:500;color:var(--sub);font-size:12px;margin-left:6px}
+.recRow span{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
+.recRow span.none{font-size:14px;font-weight:600;color:var(--sub)}
 .toast{position:fixed;left:50%;white-space:nowrap;bottom:60px;transform:translateX(-50%);background:var(--btnOn);color:var(--btnOnTxt);padding:10px 16px;border-radius:999px;font-size:13px;font-weight:700;opacity:0;transition:opacity .25s;pointer-events:none;z-index:30}
 .toast.show{opacity:1}
 .conf{position:fixed;top:-12px;width:8px;height:12px;z-index:25;pointer-events:none;animation:fall linear forwards}
@@ -95,7 +106,7 @@ svg.revealed .edge.on{stroke:var(--accent);animation:none}
 <div class="app">
   <header>
     <div class="title">울타리 치기<span>슬리더링크</span></div>
-    <button class="iconBtn" id="setBtn">설정</button>
+    <div style="display:flex;gap:6px"><button class="iconBtn" id="recBtn">기록</button><button class="iconBtn" id="setBtn">설정</button></div>
   </header>
 
   <div class="diff" id="diff">
@@ -165,8 +176,16 @@ svg.revealed .edge.on{stroke:var(--accent);animation:none}
       <div class="setItem" data-k="autoX"><div>자동 X 표시<small>다 채운 숫자 주변 빈 변에 X</small></div><div class="sw"></div></div>
       <div class="setItem" data-k="dark"><div>다크 모드</div><div class="sw"></div></div>
     </div>
-    <p id="recText" style="margin-bottom:14px"></p>
     <div class="row"><button class="primary" id="setClose">닫기</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="ovRec">
+  <div class="modal">
+    <h3>최고 기록</h3>
+    <p>난이도별로 가장 짧은 클리어 시간만 남아요.<br>힌트로 더해진 시간도 포함돼요.</p>
+    <div class="recList" id="recList"></div>
+    <div class="row"><button class="primary" id="recClose">닫기</button></div>
   </div>
 </div>
 
@@ -181,7 +200,7 @@ svg.revealed .edge.on{stroke:var(--accent);animation:none}
 <div class="toast" id="toast"></div>
 
 <script>
-const VERSION = '0.2';
+const VERSION = '0.3';
 const BUILD_DATE = '2026-11-17';
 
 // CORE-START
@@ -611,10 +630,9 @@ function checkWin(){
   // 남은 빈 변 X 처리로 깔끔하게
   for(let e=0;e<P.g.E;e++) if(user[e]===-1) user[e]=0;
   render(); svg.classList.add('solved');
-  const D=DIFFS[curDiff], bk='slither_best_'+D.key, ck='slither_clears_'+D.key;
+  const D=DIFFS[curDiff], bk='slither_best_'+D.key;
   const prev=lsGet(bk,null), isNew=prev===null||total<prev;
   if(isNew) lsSet(bk,total);
-  lsSet(ck,lsGet(ck,0)+1);
   $('winTime').textContent='클리어 '+fmtShort(total);
   $('winDetail').textContent=used?`풀이 ${fmtShort(solve)} + 힌트 ${used}회 ${used}:00`:`풀이 ${fmtShort(solve)} · 힌트 없이 클리어`;
   const best=$('winBest');
@@ -654,11 +672,15 @@ function applySettings(){
   if(P) render();
 }
 document.querySelectorAll('.setItem').forEach(it=>it.onclick=()=>{settings[it.dataset.k]=!settings[it.dataset.k];saveSettings();applySettings();});
-$('setBtn').onclick=()=>{
-  const lines=DIFFS.map(D=>{const b=lsGet('slither_best_'+D.key,null),c=lsGet('slither_clears_'+D.key,0);return `${D.name}: 클리어 ${c}회${b!==null?' · 최고 '+fmtShort(b):''}`;});
-  $('recText').innerHTML=lines.join('<br>');
-  $('ovSet').classList.add('show');
+$('setBtn').onclick=()=>$('ovSet').classList.add('show');
+$('recBtn').onclick=()=>{
+  $('recList').innerHTML=DIFFS.map(D=>{
+    const b=lsGet('slither_best_'+D.key,null);
+    return `<div class="recRow"><b>${D.name}<small>${D.W}×${D.H}</small></b>${b===null?'<span class="none">기록 없음</span>':'<span>'+fmtShort(b)+'</span>'}</div>`;
+  }).join('');
+  $('ovRec').classList.add('show');
 };
+$('recClose').onclick=()=>$('ovRec').classList.remove('show');
 $('setClose').onclick=()=>$('ovSet').classList.remove('show');
 
 /* ---------- 시작 ---------- */
