@@ -213,7 +213,7 @@ body.dark .mine{stroke:#fde047}
       <div class="timer" id="timer">00:00</div>
       <button class="pauseBtn" id="pauseBtn" title="잠시 멈춤"><svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></button>
       <div class="timerLbl" id="hintInfo"></div>
-      <div class="plus" id="plus">+1:00</div>
+      <div class="plus" id="plus">+0:30</div>
     </div>
   </div>
 
@@ -315,7 +315,8 @@ body.dark .mine{stroke:#fde047}
 <div class="toast" id="toast"></div>
 
 <script>
-const VERSION = '1.1';
+const VERSION = '1.2';
+const HINT_PENALTY = 30; // 힌트 1회당 더해지는 시간(초)
 const BUILD_DATE = '2026-11-18';
 
 // CORE-START
@@ -745,7 +746,7 @@ function flash(e,cls,isX){
 function updateHintUI(){
   $('hintBadge').textContent=hintsLeft;
   $('tHint').disabled=hintsLeft<=0;
-  $('hintInfo').textContent=penalty?`힌트 +${penalty/60}분`:'';
+  $('hintInfo').textContent=penalty?`힌트 +${fmtShort(penalty)}`:'';
 }
 $('tHint').onclick=()=>{
   ensureAudio(); if(!P||solved||paused||waiting||hintsLeft<=0) return;
@@ -764,7 +765,7 @@ $('tHint').onclick=()=>{
   if(kind==='wrongLine'){setEdge(target,0,ch);render();flash(target,'flash-wrong');showToast('잘못 그은 선을 지웠어요');}
   else {setEdge(target,1,ch);render();flash(target,'flash-hint');if(kind==='wrongX')showToast('X 자리에 선이 들어가야 해요');}
   undoStack.push(ch);
-  hintsLeft--; penalty+=60; updateHintUI(); updateTimer(); sfx.hint();
+  hintsLeft--; penalty+=HINT_PENALTY; updateHintUI(); updateTimer(); sfx.hint();
   const pl=$('plus'); pl.classList.remove('go'); void pl.offsetWidth; pl.classList.add('go');
   checkWin();
 };
@@ -816,7 +817,7 @@ function checkWin(){
   if(isNew) lsSet(bk,total);
   lsSet('slither_clears_'+D.key, lsGet('slither_clears_'+D.key,0)+1);
   $('winTime').textContent='클리어 '+fmtShort(total);
-  $('winDetail').textContent=used?`풀이 ${fmtShort(solve)} + 힌트 ${used}회 ${used}:00`:`풀이 ${fmtShort(solve)} · 힌트 없이 클리어`;
+  $('winDetail').textContent=used?`풀이 ${fmtShort(solve)} + 힌트 ${used}회 ${fmtShort(used*HINT_PENALTY)}`:`풀이 ${fmtShort(solve)} · 힌트 없이 클리어`;
   const best=$('winBest');
   best.textContent=isNew?`${D.name} 난이도 최고 기록!`:`${D.name} 최고 기록 ${fmtShort(prev)}`;
   best.classList.toggle('new',isNew);
