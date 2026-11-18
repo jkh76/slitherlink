@@ -154,12 +154,13 @@ body.dark .mine{stroke:#fde047}
 .spin{width:28px;height:28px;border:3px solid var(--btn);border-top-color:var(--accent);border-radius:50%;animation:sp 0.8s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
 .recList{margin:0 0 16px;display:flex;flex-direction:column;gap:8px}
-.recRow{display:flex;justify-content:space-between;align-items:center;background:var(--btn);border-radius:12px;padding:12px 14px}
-.recRow b{font-size:16px}
-.recRow b em{display:block;font-style:normal;font-size:12px;font-weight:700;color:var(--accent);margin-top:3px}
-.recRow b small{font-weight:500;color:var(--sub);font-size:12px;margin-left:6px}
-.recRow span{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
-.recRow span.none{font-size:14px;font-weight:600;color:var(--sub)}
+.recRow{display:grid;grid-template-columns:62px 1fr 1fr;align-items:center;gap:8px;background:var(--btn);border-radius:12px;padding:10px 12px}
+.recRow b{font-size:16px;text-align:left}
+.recCell{display:flex;flex-direction:column;align-items:center;gap:2px;background:var(--card);border-radius:9px;padding:7px 4px}
+.recCell small{font-size:12px;font-weight:700;color:var(--sub)}
+.recCell span{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.2}
+.recCell span.none{font-size:13px;font-weight:600;color:var(--sub);line-height:1.85}
+.recCell em{font-style:normal;font-size:11px;font-weight:700;color:var(--accent)}
 .toast{position:fixed;left:50%;white-space:nowrap;bottom:60px;transform:translateX(-50%);background:var(--btnOn);color:var(--btnOnTxt);padding:10px 16px;border-radius:999px;font-size:13px;font-weight:700;opacity:0;transition:opacity .25s;pointer-events:none;z-index:30}
 .toast.show{opacity:1}
 .conf{position:fixed;top:-12px;width:8px;height:12px;z-index:25;pointer-events:none;animation:fall linear forwards}
@@ -348,7 +349,7 @@ body.dark .mine{stroke:#fde047}
 <div class="toast" id="toast"></div>
 
 <script>
-const VERSION = '1.5';
+const VERSION = '1.6';
 const HINT_PENALTY = 30; // 힌트 1회당 더해지는 시간(초)
 const BUILD_DATE = '2026-11-18';
 
@@ -894,10 +895,14 @@ function applySettings(){
 document.querySelectorAll('.setItem').forEach(it=>it.onclick=()=>{settings[it.dataset.k]=!settings[it.dataset.k];saveSettings();applySettings();});
 $('setBtn').onclick=()=>$('ovSet').classList.add('show');
 $('recBtn').onclick=()=>{
-  $('recList').innerHTML=DIFFS.map(D=>{
+  // 판 크기마다 한 줄: [크기] [하 기록] [상 기록]
+  const cellHtml=D=>{
     const b=lsGet('slither_best_'+D.key,null), c=lsGet('slither_clears_'+D.key,0);
-    return `<div class="recRow"><b>${D.W}×${D.H}<small>${D.name}</small><em>${c}회 클리어</em></b>${b===null?'<span class="none">기록 없음</span>':'<span>'+fmtShort(b)+'</span>'}</div>`;
-  }).join('');
+    return `<div class="recCell"><small>${D.name}</small>${b===null?'<span class="none">기록 없음</span>':'<span>'+fmtShort(b)+'</span>'}<em>${c}회 클리어</em></div>`;
+  };
+  let h='';
+  for(let i=0;i<DIFFS.length;i+=2) h+=`<div class="recRow"><b>${DIFFS[i].W}×${DIFFS[i].H}</b>${cellHtml(DIFFS[i])}${cellHtml(DIFFS[i+1])}</div>`;
+  $('recList').innerHTML=h;
   $('ovRec').classList.add('show');
 };
 $('recClose').onclick=()=>$('ovRec').classList.remove('show');
