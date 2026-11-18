@@ -40,6 +40,9 @@ button{font:inherit;color:inherit;border:none;cursor:pointer}
 .plus{position:absolute;left:70px;top:-6px;color:var(--over);font-weight:800;font-size:18px;opacity:0;pointer-events:none}
 .plus.go{animation:plusUp 1.3s ease-out}
 @keyframes plusUp{0%{opacity:0;transform:translateY(8px)}15%{opacity:1}100%{opacity:0;transform:translateY(-22px)}}
+.hintPop{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(20,24,34,.28);color:rgba(255,255,255,.95);text-shadow:0 1px 6px rgba(20,24,34,.45);font-size:30px;font-weight:800;letter-spacing:-.5px;padding:16px 30px;border-radius:999px;white-space:nowrap;pointer-events:none;opacity:0;z-index:5}
+.hintPop.go{animation:hintPop 1.6s ease-out}
+@keyframes hintPop{0%{opacity:0;transform:translate(-50%,-50%) scale(.85)}15%{opacity:1;transform:translate(-50%,-50%) scale(1)}70%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-62%) scale(1)}}
 .timerBox{align-items:center}
 .pauseBtn{width:30px;height:30px;border-radius:50%;background:var(--btn);display:flex;align-items:center;justify-content:center;flex:none;padding:0;transition:background .2s,transform .15s}
 .pauseBtn:active{transform:scale(.92)}
@@ -237,6 +240,7 @@ body.dark .mine{stroke:#fde047}
 
   <div class="boardWrap">
     <svg id="board" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div class="hintPop" id="hintPop">30초 추가</div>
     <div class="pauseCover" id="pauseCover">
       <div class="pcInner">
         <div class="pcTag"><i></i>PAUSED</div>
@@ -333,7 +337,7 @@ body.dark .mine{stroke:#fde047}
 <div class="toast" id="toast"></div>
 
 <script>
-const VERSION = '1.4';
+const VERSION = '1.5';
 const HINT_PENALTY = 30; // 힌트 1회당 더해지는 시간(초)
 const BUILD_DATE = '2026-11-18';
 
@@ -785,6 +789,7 @@ $('tHint').onclick=()=>{
   undoStack.push(ch);
   hintsLeft--; penalty+=HINT_PENALTY; updateHintUI(); updateTimer(); sfx.hint();
   const pl=$('plus'); pl.classList.remove('go'); void pl.offsetWidth; pl.classList.add('go');
+  const hp=$('hintPop'); hp.textContent=`${HINT_PENALTY}초 추가`; hp.classList.remove('go'); void hp.offsetWidth; hp.classList.add('go');
   checkWin();
 };
 
