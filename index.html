@@ -166,6 +166,16 @@ body.dark .mine{stroke:#fde047}
 .recCell span{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.2}
 .recCell span.none{font-size:13px;font-weight:600;color:var(--sub);line-height:1.85}
 .recCell em{font-style:normal;font-size:11px;font-weight:700;color:var(--accent)}
+.syncBox{margin:0 0 14px;padding:12px;border-radius:12px;border:1.5px dashed color-mix(in srgb,var(--sub) 45%,transparent);text-align:left}
+.syncBox h4{margin:0 0 3px;font-size:14px;display:flex;align-items:center;gap:6px}
+.syncBox h4 i{width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block}
+.syncBox h4 i.err{background:var(--hint)}
+.syncBox p{margin:0 0 10px;font-size:12px;color:var(--sub);line-height:1.5}
+.syncCode{font-size:24px;font-weight:900;letter-spacing:3px;font-variant-numeric:tabular-nums;margin:2px 0 2px}
+.syncBox .row button{font-size:14px;padding:10px 0}
+.syncBox .row button:disabled{opacity:.5}
+.codeIn{width:100%;font:inherit;font-size:24px;font-weight:800;letter-spacing:4px;text-align:center;text-transform:uppercase;padding:12px;border-radius:12px;border:2px solid var(--btn);background:var(--bg);color:var(--ink);margin-bottom:14px;user-select:text;-webkit-user-select:text;outline:none}
+.codeIn:focus{border-color:var(--accent)}
 .toast{position:fixed;left:50%;white-space:nowrap;bottom:60px;transform:translateX(-50%);background:var(--btnOn);color:var(--btnOnTxt);padding:10px 16px;border-radius:999px;font-size:13px;font-weight:700;opacity:0;transition:opacity .25s;pointer-events:none;z-index:30}
 .toast.show{opacity:1}
 .conf{position:fixed;top:-12px;width:8px;height:12px;z-index:25;pointer-events:none;animation:fall linear forwards}
@@ -337,6 +347,7 @@ body.dark .mine{stroke:#fde047}
     <h3>최고 기록</h3>
     <p>난이도별 클리어 횟수와 가장 짧은 시간이에요.<br>힌트로 더해진 시간도 포함돼요.</p>
     <div class="recList" id="recList"></div>
+    <div class="syncBox" id="syncBox"></div>
     <div class="row"><button class="primary" id="recClose">닫기</button></div>
   </div>
 </div>
@@ -351,10 +362,19 @@ body.dark .mine{stroke:#fde047}
   </div>
 </div>
 
+<div class="overlay" id="ovCode">
+  <div class="modal">
+    <h3>동기화 코드 입력</h3>
+    <p>다른 기기에 나온 8자리 코드를 넣어 주세요.<br>이 기기의 기록과 합쳐져요.</p>
+    <input class="codeIn" id="codeIn" maxlength="9" placeholder="XXXX-XXXX" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false">
+    <div class="row"><button id="codeNo">취소</button><button class="primary" id="codeYes">연결</button></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
-const VERSION = '1.7';
+const VERSION = '1.8';
 const HINT_PENALTY = 30; // 힌트 1회당 더해지는 시간(초)
 const BUILD_DATE = '2026-11-18';
 
@@ -863,6 +883,7 @@ function checkWin(){
   const prev=lsGet(bk,null), isNew=prev===null||total<prev;
   if(isNew) lsSet(bk,total);
   lsSet('slither_clears_'+D.key, lsGet('slither_clears_'+D.key,0)+1);
+  queueSync(D.key,total);
   $('winTime').textContent='클리어 '+fmtShort(total);
   $('winDetail').textContent=used?`풀이 ${fmtShort(solve)} + 힌트 ${used}회 ${fmtShort(used*HINT_PENALTY)}`:`풀이 ${fmtShort(solve)} · 힌트 없이 클리어`;
   const best=$('winBest');
@@ -911,7 +932,7 @@ function centerOnBoard(ov){
   m.style.translate=`${dx/k}px ${dy/k}px`;
 }
 addEventListener('resize',()=>{if($('ovRec').classList.contains('show')) centerOnBoard($('ovRec'));});
-$('recBtn').onclick=()=>{
+function renderRecList(){
   // 판 크기마다 한 줄: [크기] [하 기록] [상 기록]
   const cellHtml=D=>{
     const b=lsGet('slither_best_'+D.key,null), c=lsGet('slither_clears_'+D.key,0);
@@ -920,11 +941,166 @@ $('recBtn').onclick=()=>{
   let h='';
   for(let i=0;i<DIFFS.length;i+=2) h+=`<div class="recRow"><b>${DIFFS[i].W}×${DIFFS[i].H}</b>${cellHtml(DIFFS[i])}${cellHtml(DIFFS[i+1])}</div>`;
   $('recList').innerHTML=h;
+}
+$('recBtn').onclick=()=>{
+  renderRecList(); renderSyncBox();
   $('ovRec').classList.add('show');
   centerOnBoard($('ovRec'));
+  syncNow();
 };
 $('recClose').onclick=()=>$('ovRec').classList.remove('show');
 $('setClose').onclick=()=>$('ovSet').classList.remove('show');
+
+
+/* ---------- 기기 간 기록 공유 (Firebase REST API, 라이브러리 없이) ----------
+   sync/<코드> = {best:{key:초}, clears:{key:횟수}, updated:시각}
+   코드를 아는 기기끼리 같은 기록을 씀. 익명 로그인 토큰은 localStorage에 보관. */
+const FB={
+  key:'AIzaSyAAXbHWOAni736XJ3pzfVtfLf8XPCo2vJU',
+  db:'https://slitherlink-jkh-default-rtdb.asia-southeast1.firebasedatabase.app'
+};
+const CODE_CH='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 헷갈리는 I·O·0·1 제외
+const CODE_RE=/^[A-HJ-NP-Z2-9]{8}$/;
+const fmtCode=c=>c.slice(0,4)+'-'+c.slice(4);
+const normCode=v=>(v||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+let syncCode=lsGet('slither_sync_code',null), syncBusy=false, syncErr=false;
+
+async function fbAuth(){
+  let a=lsGet('slither_fb_auth',null), r, j;
+  if(a&&a.exp>Date.now()+60000) return a.tok;
+  if(a&&a.ref){
+    r=await fetch('https://securetoken.googleapis.com/v1/token?key='+FB.key,{method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'grant_type=refresh_token&refresh_token='+encodeURIComponent(a.ref)});
+    if(r.ok){j=await r.json();a={tok:j.id_token,ref:j.refresh_token,exp:Date.now()+(+j.expires_in)*1000};lsSet('slither_fb_auth',a);return a.tok;}
+  }
+  r=await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signUp?key='+FB.key,{method:'POST',
+    headers:{'Content-Type':'application/json'},body:'{"returnSecureToken":true}'});
+  if(!r.ok) throw new Error('auth '+r.status);
+  j=await r.json(); a={tok:j.idToken,ref:j.refreshToken,exp:Date.now()+(+j.expiresIn)*1000};
+  lsSet('slither_fb_auth',a); return a.tok;
+}
+async function fbReq(method,path,body){
+  const tok=await fbAuth();
+  const r=await fetch(`${FB.db}/${path}.json?auth=${encodeURIComponent(tok)}`,{method,body:body===undefined?undefined:JSON.stringify(body)});
+  if(!r.ok) throw new Error('db '+r.status);
+  return r.json();
+}
+function localRecs(){
+  const best={},clears={};
+  for(const D of DIFFS){const b=lsGet('slither_best_'+D.key,null),c=lsGet('slither_clears_'+D.key,0);if(b!==null)best[D.key]=b;if(c)clears[D.key]=c;}
+  return {best,clears};
+}
+// 클리어할 때마다 큐에 넣고 바로 보냄. 오프라인이면 다음에 보냄.
+function queueSync(k,t){
+  if(!syncCode) return;
+  const q=lsGet('slither_sync_q',[]); q.push({k,t}); lsSet('slither_sync_q',q);
+  flushSync().then(()=>{syncErr=false;}).catch(()=>{syncErr=true;});
+}
+async function flushSync(){
+  const q=lsGet('slither_sync_q',[]); if(!syncCode||!q.length) return;
+  const cnt={}, mins={};
+  for(const it of q){cnt[it.k]=(cnt[it.k]||0)+1; if(mins[it.k]==null||it.t<mins[it.k]) mins[it.k]=it.t;}
+  const rb=await fbReq('GET',`sync/${syncCode}/best`)||{};
+  const upd={updated:{'.sv':'timestamp'}};
+  for(const k in cnt){
+    upd['clears/'+k]={'.sv':{increment:cnt[k]}};
+    if(rb[k]==null||mins[k]<rb[k]) upd['best/'+k]=mins[k];
+  }
+  await fbReq('PATCH',`sync/${syncCode}`,upd);
+  lsSet('slither_sync_q',lsGet('slither_sync_q',[]).slice(q.length));
+}
+// 서버 기록을 이 기기에 반영: 최고 기록은 더 짧은 쪽, 횟수는 서버 값(+아직 못 보낸 것)
+function applyRemote(rem){
+  const q=lsGet('slither_sync_q',[]);
+  for(const D of DIFFS){
+    const k=D.key, rb=rem&&rem.best?rem.best[k]:null, lb=lsGet('slither_best_'+k,null);
+    if(rb!=null&&(lb===null||rb<lb)) lsSet('slither_best_'+k,rb);
+    const rc=(rem&&rem.clears&&rem.clears[k])||0, pend=q.filter(it=>it.k===k).length;
+    lsSet('slither_clears_'+k,Math.max(rc+pend,0));
+  }
+  lsSet('slither_sync_at',Date.now());
+}
+async function syncNow(){
+  if(!syncCode||syncBusy) return;
+  syncBusy=true; renderSyncBox();
+  try{ await flushSync(); applyRemote(await fbReq('GET',`sync/${syncCode}`)); syncErr=false; }
+  catch(e){ syncErr=true; }
+  syncBusy=false; renderSyncBox();
+  if($('ovRec').classList.contains('show')) renderRecList();
+  if(waiting) showStart();
+}
+function setLinked(code){ syncCode=code; lsSet('slither_sync_code',code); lsSet('slither_sync_q',[]); }
+async function createCode(){
+  let code=''; for(const b of crypto.getRandomValues(new Uint8Array(8))) code+=CODE_CH[b%32];
+  const L=localRecs();
+  await fbReq('PUT',`sync/${code}`,{best:L.best,clears:L.clears,updated:{'.sv':'timestamp'}});
+  setLinked(code); lsSet('slither_sync_at',Date.now()); syncErr=false;
+}
+async function joinCode(code){
+  const rem=await fbReq('GET',`sync/${code}`);
+  if(rem===null){const e=new Error('nocode');e.nocode=true;throw e;}
+  const L=localRecs(), last=lsGet('slither_sync_last',null), base=(last&&last.code===code)?last.clears:{};
+  const upd={updated:{'.sv':'timestamp'}};
+  for(const D of DIFFS){
+    const k=D.key, lb=L.best[k], rb=rem.best?rem.best[k]:null;
+    if(lb!=null&&(rb==null||lb<rb)) upd['best/'+k]=lb;
+    const add=(L.clears[k]||0)-(base[k]||0);   // 같은 코드에 다시 연결하면 이미 올린 횟수는 빼고 더함
+    if(add>0) upd['clears/'+k]={'.sv':{increment:add}};
+  }
+  await fbReq('PATCH',`sync/${code}`,upd);
+  setLinked(code);
+  applyRemote(await fbReq('GET',`sync/${code}`)); syncErr=false;
+}
+async function unlinkSync(){
+  try{await flushSync();}catch(e){}
+  lsSet('slither_sync_last',{code:syncCode,clears:localRecs().clears});
+  syncCode=null; try{localStorage.removeItem('slither_sync_code');}catch(e){} lsSet('slither_sync_q',[]);
+}
+function ago(t){
+  const s=Math.floor((Date.now()-t)/1000);
+  if(s<60) return '방금'; if(s<3600) return Math.floor(s/60)+'분 전'; if(s<86400) return Math.floor(s/3600)+'시간 전';
+  const d=new Date(t); return `${d.getMonth()+1}/${d.getDate()}`;
+}
+function renderSyncBox(){
+  const el=$('syncBox'); if(!el) return;
+  if(!syncCode){
+    el.innerHTML=`<h4>다른 기기와 기록 공유</h4><p>코드를 만들어 다른 기기에 입력하면<br>휴대폰·PC 어디서든 같은 기록을 써요.</p>
+      <div class="row"><button id="syncNew">코드 만들기</button><button class="primary" id="syncJoin">코드 입력</button></div>`;
+    $('syncNew').onclick=async()=>{
+      const b=$('syncNew'); b.disabled=true; b.textContent='만드는 중…';
+      try{await createCode();showToast('동기화 코드를 만들었어요');}catch(e){showToast('연결하지 못했어요. 인터넷을 확인해 주세요');}
+      renderSyncBox(); renderRecList(); centerOnBoard($('ovRec'));
+    };
+    $('syncJoin').onclick=()=>{$('codeIn').value='';$('codeYes').disabled=false;$('codeYes').textContent='연결';$('ovCode').classList.add('show');setTimeout(()=>$('codeIn').focus(),60);};
+  }else{
+    const at=lsGet('slither_sync_at',null);
+    const st=syncBusy?'동기화 중…':syncErr?'지금은 서버에 연결이 안 돼요. 다음에 자동으로 맞춰요':at?`마지막 동기화 ${ago(at)}`:'';
+    el.innerHTML=`<h4><i class="${syncErr?'err':''}"></i>기록 공유 중</h4><div class="syncCode">${fmtCode(syncCode)}</div>
+      <p>${st}<br>다른 기기에서 이 코드를 입력하면 같은 기록을 써요.</p>
+      <div class="row"><button id="syncCopy">코드 복사</button><button id="syncOff">연결 끊기</button></div>`;
+    $('syncCopy').onclick=()=>{const c=fmtCode(syncCode);(navigator.clipboard?navigator.clipboard.writeText(c):Promise.reject()).then(()=>showToast('코드를 복사했어요')).catch(()=>showToast('코드: '+c));};
+    $('syncOff').onclick=async()=>{
+      const b=$('syncOff'); if(b.dataset.sure!=='1'){b.dataset.sure='1';b.textContent='정말 끊기';return;}
+      await unlinkSync(); renderSyncBox(); centerOnBoard($('ovRec')); showToast('연결을 끊었어요. 이 기기 기록은 그대로예요');
+    };
+  }
+}
+$('codeIn').addEventListener('input',e=>{const c=normCode(e.target.value).slice(0,8);e.target.value=c.length>4?fmtCode(c):c;});
+$('codeIn').addEventListener('keydown',e=>{if(e.key==='Enter') $('codeYes').click();});
+$('codeNo').onclick=()=>$('ovCode').classList.remove('show');
+$('codeYes').onclick=async()=>{
+  const code=normCode($('codeIn').value);
+  if(!CODE_RE.test(code)){showToast('8자리 코드를 확인해 주세요');return;}
+  const b=$('codeYes'); b.disabled=true; b.textContent='연결 중…';
+  try{
+    await joinCode(code);
+    $('ovCode').classList.remove('show'); showToast('기록을 합쳤어요');
+    renderSyncBox(); renderRecList(); centerOnBoard($('ovRec')); if(waiting) showStart();
+  }catch(e){
+    showToast(e.nocode?'없는 코드예요. 다시 확인해 주세요':'연결하지 못했어요. 인터넷을 확인해 주세요');
+  }
+  b.disabled=false; b.textContent='연결';
+};
 
 /* ---------- 시작 ---------- */
 $('foot').textContent=`v${VERSION} · ${BUILD_DATE}`;
@@ -934,6 +1110,7 @@ applySettings();
   try{const q=new URLSearchParams(location.search);if(q.has('d'))d=Math.min(DIFFS.length-1,Math.max(0,parseInt(q.get('d'))||0));if(q.has('s'))s=parseInt(q.get('s'))||null;}catch(e){}
   newPuzzle(d,s);
 })();
+setTimeout(syncNow,600);
 </script>
 </body>
 </html>
