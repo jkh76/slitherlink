@@ -899,6 +899,18 @@ function applySettings(){
 }
 document.querySelectorAll('.setItem').forEach(it=>it.onclick=()=>{settings[it.dataset.k]=!settings[it.dataset.k];saveSettings();applySettings();});
 $('setBtn').onclick=()=>$('ovSet').classList.add('show');
+// 모달을 화면 중앙이 아니라 게임판 중앙에 띄움 (화면 밖으로 나가지 않게)
+function centerOnBoard(ov){
+  const m=ov.querySelector('.modal'); m.style.translate='';
+  const br=document.querySelector('.boardWrap').getBoundingClientRect(), mr=m.getBoundingClientRect(), orr=ov.getBoundingClientRect();
+  const k=orr.width/ov.offsetWidth||1;  // PC 80% 표시(zoom) 보정
+  const pad=8;
+  let dx=(br.left+br.width/2)-(mr.left+mr.width/2), dy=(br.top+br.height/2)-(mr.top+mr.height/2);
+  dx=Math.max(orr.left+pad-mr.left,Math.min(orr.right-pad-mr.right,dx));
+  dy=Math.max(orr.top+pad-mr.top,Math.min(orr.bottom-pad-mr.bottom,dy));
+  m.style.translate=`${dx/k}px ${dy/k}px`;
+}
+addEventListener('resize',()=>{if($('ovRec').classList.contains('show')) centerOnBoard($('ovRec'));});
 $('recBtn').onclick=()=>{
   // 판 크기마다 한 줄: [크기] [하 기록] [상 기록]
   const cellHtml=D=>{
@@ -909,6 +921,7 @@ $('recBtn').onclick=()=>{
   for(let i=0;i<DIFFS.length;i+=2) h+=`<div class="recRow"><b>${DIFFS[i].W}×${DIFFS[i].H}</b>${cellHtml(DIFFS[i])}${cellHtml(DIFFS[i+1])}</div>`;
   $('recList').innerHTML=h;
   $('ovRec').classList.add('show');
+  centerOnBoard($('ovRec'));
 };
 $('recClose').onclick=()=>$('ovRec').classList.remove('show');
 $('setClose').onclick=()=>$('ovSet').classList.remove('show');
