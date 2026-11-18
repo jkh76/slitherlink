@@ -22,7 +22,7 @@ body.dark{
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0}
-body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;transition:background .25s,color .25s;user-select:none;-webkit-user-select:none}
+body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;transition:background .25s,color .25s;user-select:none;-webkit-user-select:none}
 .app{width:100%;max-width:560px;padding:14px 14px 0;display:flex;flex-direction:column;gap:12px;flex:1}
 header{display:flex;align-items:center;justify-content:space-between}
 .title{font-size:22px;font-weight:800;letter-spacing:-.5px}
@@ -195,8 +195,8 @@ body.dark .mine{stroke:#fde047}
 /* ---------- 가로 모드(태블릿): 도구를 판 오른쪽 세로로 ---------- */
 @media (orientation: landscape) and (min-width: 700px){
   .app{
-    --bw:min(calc(100vh - 205px), calc(100vw - 160px), 820px);
-    --bw:min(calc(100dvh - 205px), calc(100vw - 160px), 820px);
+    --bw:min(calc(100vh - 235px), calc(100vw - 160px), 820px);
+    --bw:min(calc(100dvh - 235px), calc(100vw - 160px), 820px);
     width:auto;max-width:none;display:grid;
     grid-template-columns:var(--bw) 96px;
     grid-template-areas:"h h" "d d" "s s" "b t";
