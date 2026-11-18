@@ -63,7 +63,12 @@ button{font:inherit;color:inherit;border:none;cursor:pointer}
 .startBtn svg{width:24px;height:24px;fill:#fff}
 @keyframes breathe{50%{transform:scale(1.04);box-shadow:0 16px 40px color-mix(in srgb,var(--accent) 55%,transparent)}}
 .scDiff{font-size:30px;font-weight:900;letter-spacing:-.5px}
-.scDiff small{font-size:16px;font-weight:700;color:var(--sub);margin-left:8px}
+.scDiff{display:flex;align-items:center;gap:10px}
+.lvPill{font-size:15px;font-weight:800;letter-spacing:0;padding:4px 12px;border-radius:999px;line-height:1.3}
+.lvPill.e{background:#e3f4ea;color:#1f8a4c}
+.lvPill.h{background:#fde7e7;color:#d6363b}
+body.dark .lvPill.e{background:rgba(52,199,110,.18);color:#5fd68f}
+body.dark .lvPill.h{background:rgba(255,99,99,.18);color:#ff7b7b}
 .scMeta{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
 .scMeta span{background:color-mix(in srgb,var(--btn) 85%,transparent);border-radius:999px;padding:7px 13px;font-size:13px;font-weight:700;color:var(--sub);font-variant-numeric:tabular-nums}
 .scMeta b{color:var(--ink)}
@@ -267,7 +272,7 @@ body.dark .mine{stroke:#fde047}
     <div class="pauseCover" id="startCover">
       <div class="pcInner">
         <div class="pcTag">READY</div>
-        <div class="scDiff" id="scDiff">5×5<small>하</small></div>
+        <div class="scDiff" id="scDiff"><span>5×5</span><span class="lvPill e">하</span></div>
         <button class="startBtn" id="startBtn"><svg viewBox="0 0 24 24"><path d="M7 5.5v13a1 1 0 001.5.9l10-6.5a1 1 0 000-1.7l-10-6.5A1 1 0 007 5.5z"/></svg>게임 시작</button>
         <div class="scMeta"><span id="scBest">기록 없음</span><span>힌트 <b>3회</b></span></div>
         <div class="pcSub">버튼을 누르면 숫자가 떨어지고 시간이 시작돼요</div>
@@ -349,7 +354,7 @@ body.dark .mine{stroke:#fde047}
 <div class="toast" id="toast"></div>
 
 <script>
-const VERSION = '1.6';
+const VERSION = '1.7';
 const HINT_PENALTY = 30; // 힌트 1회당 더해지는 시간(초)
 const BUILD_DATE = '2026-11-18';
 
@@ -638,7 +643,7 @@ let waiting=false;
 function showStart(){
   waiting=true; stopTimer(); $('timer').textContent='00:00';
   const D=DIFFS[curDiff], best=lsGet('slither_best_'+D.key,null);
-  $('scDiff').innerHTML=`${D.W}×${D.H}<small>${D.name}</small>`;
+  $('scDiff').innerHTML=`<span>${D.W}×${D.H}</span><span class="lvPill ${D.mode==='prop'?'e':'h'}">${D.name}</span>`;
   $('scBest').innerHTML=best===null?'기록 없음':`최고 <b>${fmtShort(best)}</b>`;
   document.querySelector('.app').classList.add('waiting');
   $('startCover').classList.add('show');
