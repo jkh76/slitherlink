@@ -104,6 +104,14 @@ svg#board{display:block;width:100%;height:auto;touch-action:none}
 @keyframes blink{50%{opacity:.15}}
 .xm{stroke:var(--x);stroke-width:.05;stroke-linecap:round;fill:none;opacity:0}
 .xm.show{opacity:1}
+.zoomCtl{display:flex;flex-direction:row;align-items:center;gap:6px;flex:none}
+.zoomCtl button{width:30px;height:30px;border-radius:50%;background:var(--btn);color:var(--ink);display:flex;align-items:center;justify-content:center;padding:0;flex:none;transition:background .2s,transform .15s}
+.zoomCtl button:active{transform:scale(.92)}
+.zoomCtl svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.zoomCtl #zReset{display:none}
+.zoomCtl.zoomed #zReset{display:flex}
+.boardWrap.panning svg#board{cursor:grabbing}
+.boardWrap.spacePan svg#board{cursor:grab}
 .xm.flash-wrong{opacity:1;stroke:var(--over);animation:blink .4s ease-in-out 4}
 .dot{fill:var(--dot)}
 .clue{fill:var(--ink);font-size:.6px;font-weight:700;text-anchor:middle;dominant-baseline:central;transition:fill .15s}
@@ -263,6 +271,11 @@ body.dark .mine{stroke:#fde047}
       <button class="pauseBtn" id="pauseBtn" title="잠시 멈춤"><svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></button>
       <div class="timerLbl" id="hintInfo"></div>
       <div class="plus" id="plus">+0:30</div>
+    </div>
+    <div class="zoomCtl" id="zoomCtl">
+      <button id="zReset" title="원래 크기"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+      <button id="zIn" title="확대"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+      <button id="zOut" title="축소"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
     </div>
   </div>
 
@@ -628,10 +641,70 @@ function newPuzzle(d,seed){
   },30);
 }
 
+/* ---------- 확대·이동 ---------- */
+// viewBox만 바꿔서 확대한다 → 화면 레이아웃은 그대로, 판 안의 내용만 커짐
+const boardWrapEl=document.querySelector('.boardWrap');
+const VIEW={s:1,x:-0.5,y:-0.5}, ZMAX=4;
+let viewAnim=0;
+function baseBox(){const g=P.g;return {x:-0.5,y:-0.5,w:g.W+1,h:g.H+1};}
+function applyView(){
+  if(!P) return; const b=baseBox();
+  VIEW.s=Math.min(ZMAX,Math.max(1,VIEW.s));
+  const w=b.w/VIEW.s,h=b.h/VIEW.s;
+  VIEW.x=Math.min(b.x+b.w-w,Math.max(b.x,VIEW.x));
+  VIEW.y=Math.min(b.y+b.h-h,Math.max(b.y,VIEW.y));
+  svg.setAttribute('viewBox',`${VIEW.x} ${VIEW.y} ${w} ${h}`);
+  $('zoomCtl').classList.toggle('zoomed',VIEW.s>1.01);
+}
+function toBoard(cx,cy){const pt=svg.createSVGPoint();pt.x=cx;pt.y=cy;return pt.matrixTransform(svg.getScreenCTM().inverse());}
+// 화면 좌표 (cx,cy) 아래 지점을 손가락·커서 밑에 고정한 채 배율을 ns로
+function zoomAt(cx,cy,ns,anchor){
+  cancelAnimationFrame(viewAnim);
+  const b=baseBox(), w=b.w/VIEW.s, h=b.h/VIEW.s, here=toBoard(cx,cy), a=anchor||here;
+  const fx=(here.x-VIEW.x)/w, fy=(here.y-VIEW.y)/h;
+  VIEW.s=Math.min(ZMAX,Math.max(1,ns));
+  VIEW.x=a.x-fx*b.w/VIEW.s; VIEW.y=a.y-fy*b.h/VIEW.s; applyView();
+}
+function animView(ts,tx,ty){
+  cancelAnimationFrame(viewAnim);
+  const s0=VIEW.s,x0=VIEW.x,y0=VIEW.y,t0=performance.now();
+  const step=t=>{const k=Math.min(1,(t-t0)/220),e=1-Math.pow(1-k,3);
+    VIEW.s=s0+(ts-s0)*e;VIEW.x=x0+(tx-x0)*e;VIEW.y=y0+(ty-y0)*e;applyView();
+    if(k<1) viewAnim=requestAnimationFrame(step);};
+  viewAnim=requestAnimationFrame(step);
+}
+function zoomCenter(ns){ // 지금 보이는 가운데를 기준으로
+  const b=baseBox(), w=b.w/VIEW.s, h=b.h/VIEW.s, cx=VIEW.x+w/2, cy=VIEW.y+h/2;
+  ns=Math.min(ZMAX,Math.max(1,ns));
+  animView(ns,cx-b.w/ns/2,cy-b.h/ns/2);
+}
+function resetView(anim){ if(!P) return; if(anim) animView(1,-0.5,-0.5); else {cancelAnimationFrame(viewAnim);VIEW.s=1;VIEW.x=-0.5;VIEW.y=-0.5;applyView();} }
+function panBy(p0,p1){ // 화면에서 p0→p1로 끈 만큼 판을 따라 움직임
+  cancelAnimationFrame(viewAnim);
+  const a=toBoard(p0.x,p0.y), c=toBoard(p1.x,p1.y);
+  VIEW.x-=c.x-a.x; VIEW.y-=c.y-a.y; applyView();
+}
+$('zIn').onclick=()=>{ensureAudio();if(P)zoomCenter(VIEW.s*1.5);};
+$('zOut').onclick=()=>{ensureAudio();if(P)zoomCenter(VIEW.s/1.5);};
+$('zReset').onclick=()=>{ensureAudio();resetView(true);};
+svg.addEventListener('wheel',ev=>{
+  if(!P) return; ev.preventDefault();
+  let d=ev.deltaY*(ev.deltaMode===1?33:1);
+  zoomAt(ev.clientX,ev.clientY,VIEW.s*Math.exp(-d*(ev.ctrlKey?0.01:0.0018)));
+},{passive:false});
+// 스페이스바를 누른 채 끌면 이동 (PC)
+let spaceDown=false;
+addEventListener('keydown',e=>{
+  if(e.code!=='Space'||/INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+  e.preventDefault(); if(!spaceDown){spaceDown=true;boardWrapEl.classList.add('spacePan');}
+});
+addEventListener('keyup',e=>{if(e.code==='Space'){spaceDown=false;boardWrapEl.classList.remove('spacePan');}});
+addEventListener('blur',()=>{spaceDown=false;boardWrapEl.classList.remove('spacePan');});
+
 /* ---------- 판 그리기 ---------- */
 function buildBoard(){
   const g=P.g; svg.classList.remove('solved','revealed');
-  svg.setAttribute('viewBox',`-0.5 -0.5 ${g.W+1} ${g.H+1}`);
+  resetView(false);
   let h=`<rect x="-0.5" y="-0.5" width="${g.W+1}" height="${g.H+1}" fill="transparent"/>`;
   for(let e=0;e<g.E;e++){
     const [x1,y1,x2,y2]=g.edgePos[e], mx=(x1+x2)/2, my=(y1+y2)/2, k=0.1;
@@ -732,17 +805,45 @@ function applyDrag(e){
   if(ok) render();
 }
 svg.addEventListener('contextmenu',e=>e.preventDefault());
+// 손가락 두 개: 벌리고 오므려 확대·축소, 같이 끌어 이동 / 가운데 버튼·스페이스+끌기: 이동
+const pts=new Map(); let gesture=null;
+function cancelDrag(){ // 한 손가락으로 긋던 선은 두 번째 손가락이 닿으면 취소
+  if(!drag) return;
+  for(let i=drag.changes.length-1;i>=0;i--){const [e,prev]=drag.changes[i];user[e]=prev;}
+  drag=null; render();
+}
+const mid=(a,b)=>({x:(a.x+b.x)/2,y:(a.y+b.y)/2}), dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y)||1;
 svg.addEventListener('pointerdown',ev=>{
   ev.preventDefault(); ensureAudio();
-  if(!P||solved||paused||waiting) return;
+  pts.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});
+  try{svg.setPointerCapture(ev.pointerId);}catch(_){}
+  if(!P) return;
+  if(pts.size>=2){ cancelDrag(); gesture='pinch'; return; }
+  if(gesture) return;
+  if(ev.button===1||spaceDown){ gesture='pan'; boardWrapEl.classList.add('panning'); return; }
+  if(solved||paused||waiting) return;
   const e=edgeAt(ev,false); if(e<0) return;
   const kind=(ev.button===2||tool==='x')?'x':'pen';
   const mode=kind==='pen'?(user[e]===1?0:1):(user[e]===-1?0:-1);
   drag={kind,mode,seen:new Set(),changes:[],first:true};
-  try{svg.setPointerCapture(ev.pointerId);}catch(_){}
   applyDrag(e);
 });
 svg.addEventListener('pointermove',ev=>{
+  const old=pts.get(ev.pointerId);
+  if(old&&gesture){
+    const now={x:ev.clientX,y:ev.clientY};
+    if(gesture==='pinch'&&pts.size>=2){
+      const ids=[...pts.keys()].slice(0,2);
+      if(ids.includes(ev.pointerId)){
+        const o=ids.map(i=>pts.get(i)); pts.set(ev.pointerId,now); const n=ids.map(i=>pts.get(i));
+        const m0=mid(o[0],o[1]), m1=mid(n[0],n[1]);
+        zoomAt(m1.x,m1.y,VIEW.s*dist(n[0],n[1])/dist(o[0],o[1]),toBoard(m0.x,m0.y));
+      }
+    }else if(gesture==='pan'){ panBy(old,now); pts.set(ev.pointerId,now); }
+    else pts.set(ev.pointerId,now);
+    return;
+  }
+  if(old) pts.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});
   if(!drag) return;
   const e=edgeAt(ev,true); if(e>=0) applyDrag(e);
 });
@@ -751,8 +852,14 @@ function endDrag(){
   const ch=drag.changes; drag=null;
   if(ch.length){ autoX(ch); undoStack.push(ch); render(); checkWin(); }
 }
-svg.addEventListener('pointerup',endDrag);
-svg.addEventListener('pointercancel',endDrag);
+function ptrEnd(ev){
+  pts.delete(ev.pointerId);
+  if(gesture){ if(pts.size===0){gesture=null;boardWrapEl.classList.remove('panning');} return; }
+  endDrag();
+}
+svg.addEventListener('pointerup',ptrEnd);
+svg.addEventListener('pointercancel',ptrEnd);
+svg.addEventListener('auxclick',e=>e.preventDefault());
 
 function autoX(changes){
   if(!settings.autoX) return;
@@ -790,7 +897,7 @@ $('ansYes').onclick=()=>{
   solved=true; stopTimer();
   const mine=[]; for(let e=0;e<P.g.E;e++) if(user[e]===1) mine.push(e);
   for(let e=0;e<P.g.E;e++) user[e]=P.sol[e]===1?1:0;
-  undoStack=[]; render(); svg.classList.add('revealed');
+  undoStack=[]; render(); svg.classList.add('revealed'); resetView(true);
   const D=DIFFS[curDiff]; $('nextSub').textContent=dLabel(D);
   document.querySelector('.app').classList.add('revealed');
   // 내가 이은 선을 정답 위에 노란색으로 겹쳐 표시
@@ -875,7 +982,7 @@ function stopTimer(){if(timerId){clearInterval(timerId);timerId=null;}}
 /* ---------- 클리어 ---------- */
 function checkWin(){
   if(solved||!verify(P.g,P.clues,user)) return;
-  solved=true; stopTimer();
+  solved=true; stopTimer(); resetView(true);
   const solve=Math.floor(elapsed()), used=3-hintsLeft, total=solve+penalty;
   $('timer').textContent=fmt(total);
   // 남은 빈 변 X 처리로 깔끔하게
