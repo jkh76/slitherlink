@@ -193,14 +193,25 @@ body.dark .mine{stroke:#fde047}
   .nextBtn span{align-items:center;text-align:center}
   .nextBtn svg{width:34px;height:34px}
 }
-/* ---------- PC 모니터: 전체를 80% 크기로 ---------- */
+/* ---------- PC 모니터 전체 화면(창 최대화·F11)일 때만 80% 크기로 ---------- */
 @media (hover:hover) and (pointer:fine) and (min-width:900px){
-  html{zoom:.8}
-  body{min-height:calc(100vh / .8);justify-content:center}
-  .app{flex:none}
-  .foot{margin-top:0}
+  html.pcFull{zoom:.8}
+  html.pcFull body{min-height:calc(100vh / .8);justify-content:center}
+  html.pcFull .app{flex:none}
+  html.pcFull .foot{margin-top:0}
 }
 </style>
+<script>
+// 브라우저 창이 화면을 꽉 채울 때(최대화·전체 화면)만 pcFull → 80% 크기
+(function(){
+  const r=document.documentElement;
+  function upd(){
+    const full=window.outerWidth>=screen.availWidth-16 && window.outerHeight>=screen.availHeight-16;
+    r.classList.toggle('pcFull',full);
+  }
+  upd(); addEventListener('resize',upd);
+})();
+</script>
 </head>
 <body>
 <div class="app">
